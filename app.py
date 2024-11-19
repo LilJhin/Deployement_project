@@ -26,8 +26,8 @@ def cleanup():
 try:
     # Initialize SAM with CPU
     DEVICE = torch.device('cpu')  # Force CPU usage
-    MODEL_TYPE = "vit_h"
-    CHECKPOINT_PATH = os.path.join("Sam model", "sam_vit_h_4b8939.pth")
+    MODEL_TYPE = "vit_b"
+    CHECKPOINT_PATH = os.path.join("Sam model", "sam_vit_b_01ec64.pth")
     sam = sam_model_registry[MODEL_TYPE](checkpoint=CHECKPOINT_PATH)
     sam.to(device=DEVICE)
     SAM_PREDICTOR = SamPredictor(sam)
