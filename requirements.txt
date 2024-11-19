@@ -1,9 +1,0 @@
-flask
-torch
-torchvision
-ultralytics
-opencv-python-headless
-segment-anything
-numpy
-Pillow
-gunicorn
