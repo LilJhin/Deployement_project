@@ -43,9 +43,9 @@ def ensure_models():
     if not os.path.exists(yolo_path):
         print("Downloading YOLO model...")
         download_file(
-            "YOUR_YOLO_MODEL_URL",  # Replace with your hosted model URL
-            yolo_path
-        )
+    "https://huggingface.co/spaces/SabbahYoussef/deployement_project_sabbah/resolve/main/best.pt",
+    yolo_path
+)
 
 # Add at start of app.py
 ensure_models()
