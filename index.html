@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PCB Analysis Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 50px auto;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 40px;
+        }
+        .choice-container {
+            display: flex;
+            gap: 40px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        .choice-card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 300px;
+            transition: transform 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+        }
+        .choice-card:hover {
+            transform: translateY(-5px);
+        }
+        .choice-card h2 {
+            color: #007bff;
+            margin-bottom: 15px;
+        }
+        .choice-card p {
+            color: #666;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PCB Void Detection Tool</h1>
+        <div class="choice-container">
+            <a href="/sam" class="choice-card">
+                <h2>SAM Interface</h2>
+                <p>Use Segment Anything Model (SAM) to annotate PCB images and detect voids interactively.</p>
+                <p>Perfect for creating training data and precise annotations.</p>
+            </a>
+            <a href="/yolo" class="choice-card">
+                <h2>YOLO Detection</h2>
+                <p>Use trained YOLO model for automated void detection in PCB images.</p>
+                <p>Best for batch processing and quick analysis.</p>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SAM Interface - PCB Void Detection</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .image-container {
+            flex: 1;
+            position: relative;
+            background: #f5f5f5;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        #uploadedImage {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+        #imageCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+        .controls {
+            width: 300px;
+            padding: 20px;
+            background: #f8f8f8;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        button {
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            flex: 1;
+            min-width: 100px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        select {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        #results {
+            margin-top: 20px;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .controls-info {
+            margin: 10px 0;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        #imageInput {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .header {
+            background: #f8f9fa;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .instructions {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .instructions h3 {
+            color: #007bff;
+            margin-top: 0;
+        }
+        .download-btn {
+            background: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        .download-btn:hover {
+            background: #218838;
+        }
+        .home-btn {
+            background: #6c757d;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin: 10px;
+        }
+        .home-btn:hover {
+            background: #5a6268;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="/" class="home-btn">← Back to Home</a>
+        <h1>SAM Interface - PCB Void Detection</h1>
+    </div>
+    
+    <div class="instructions">
+        <h3>How to Use:</h3>
+        <ol>
+            <li>Upload your PCB X-ray image</li>
+            <li>Select the class (void or solder joint)</li>
+            <li>Left click on the zones you want to annotate</li>
+            <li>Click "Segment" to see the segmentation</li>
+            <li>Use "Undo" if needed to remove last point</li>
+            <li>Segmentations are automatically saved</li>
+            <li>Use "Clear Points" to start a new annotation</li>
+        </ol>
+        <p><strong>Tip:</strong> Work on one area at a time - segment each void/joint before moving to the next one for best results.</p>
+    </div>
+    <div class="container">
+        <div class="image-container" id="imageWrapper">
+            <img id="uploadedImage">
+            <canvas id="imageCanvas"></canvas>
+        </div>
+        
+        <div class="controls">
+            <h2>Controls</h2>
+            <input type="file" id="imageInput" accept="image/*">
+            
+            <div class="class-selector">
+                <label>Select Class:</label>
+                <select id="classSelect">
+                    <option value="solder_joint">Solder Joint</option>
+                    <option value="void">Void</option>
+                </select>
+            </div>
+
+            <div class="controls-info">
+                <p><strong>Left Click:</strong> Add positive point</p>
+                <p><strong>Right Click:</strong> Add negative point</p>
+            </div>
+            
+            <div class="button-group">
+                <button id="clearPoints">Clear Points</button>
+                <button id="segment">Segment</button>
+                <button id="saveAnnotation">Save</button>
+                <button id="undoPoint">Undo</button>
+            </div>
+            
+            <div id="results">
+                <h3>Results</h3>
+                <div id="areaResults"></div>
+            </div>
+            <div class="button-group">
+                <button class="download-btn" id="downloadAnnotations">Download Annotations</button>
+            </div>
+        
+        </div>
+    </div>
+
+    <script>
+        let points = [];
+        let pointLabels = [];
+        let currentImage = null;
+        let annotations = {};
+        let overlays = [];
+
+        function handleImageClick(e) {
+            if (!currentImage) return;
+            
+            e.preventDefault();
+            
+            const image = document.getElementById('uploadedImage');
+            const rect = image.getBoundingClientRect();
+            const canvas = document.getElementById('imageCanvas');
+            
+            // Get click position relative to the image
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+            
+            // Calculate scaling factors
+            const scaleX = canvas.width / image.offsetWidth;
+            const scaleY = canvas.height / image.offsetHeight;
+            
+            // Scale coordinates to match canvas/image dimensions
+            const x = clickX * scaleX;
+            const y = clickY * scaleY;
+            
+            const isPositive = e.button === 0;
+            
+            points.push([x, y]);
+            pointLabels.push(isPositive ? 1 : 0);
+            
+            const className = $('#classSelect').val();
+            if (!annotations[currentImage]) {
+                annotations[currentImage] = {};
+            }
+            if (!annotations[currentImage][className]) {
+                annotations[currentImage][className] = [];
+            }
+            annotations[currentImage][className].push({
+                point: [x, y],
+                isPositive: isPositive
+            });
+            
+            drawPoints();
+            $('#segment').click();
+        }
+
+        $('#imageWrapper').on('mousedown', handleImageClick);
+        $('#imageWrapper').on('contextmenu', e => e.preventDefault());
+
+        $('#imageInput').change(function(e) {
+            const file = e.target.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            $.ajax({
+                url: '/upload',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if(response.success) {
+                        currentImage = response.filename;
+                        loadImage(response.path);
+                    } else {
+                        alert('Error uploading image: ' + response.error);
+                    }
+                },
+                error: function() {
+                    alert('Error uploading image');
+                }
+            });
+        });
+
+        function loadImage(src) {
+            const img = new Image();
+            const canvas = $('#imageCanvas')[0];
+            const uploadedImage = $('#uploadedImage')[0];
+            
+            img.onload = function() {
+                // Set image source and show it
+                uploadedImage.src = src;
+                uploadedImage.style.display = 'block';
+                
+                // Set canvas size to match image
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                
+                // Set canvas position and size
+                canvas.style.width = uploadedImage.offsetWidth + 'px';
+                canvas.style.height = uploadedImage.offsetHeight + 'px';
+                
+                // Reset points and overlays
+                points = [];
+                pointLabels = [];
+                overlays = [];
+                drawPoints();
+            };
+            img.src = src;
+        }
+
+        function drawPoints() {
+            const canvas = $('#imageCanvas')[0];
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw existing overlays
+            overlays.forEach(overlay => {
+                ctx.drawImage(overlay, 0, 0, canvas.width, canvas.height);
+            });
+            
+            // Draw points
+            points.forEach((point, index) => {
+                const isPositive = pointLabels[index] === 1;
+                const className = $('#classSelect').val();
+                
+                ctx.fillStyle = isPositive ? 
+                    (className === 'solder_joint' ? 'red' : 'green') : 
+                    'blue';
+                
+                ctx.beginPath();
+                ctx.arc(point[0], point[1], 5, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                // Draw point number
+                ctx.fillStyle = 'white';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText(index + 1, point[0], point[1]);
+            });
+        }
+
+        $('#clearPoints').click(function() {
+            points = [];
+            pointLabels = [];
+            overlays = [];
+            drawPoints();
+            $('#areaResults').empty();
+        });
+
+        $('#undoPoint').click(function() {
+            if (points.length > 0) {
+                points.pop();
+                pointLabels.pop();
+                overlays.pop();
+                drawPoints();
+            }
+        });
+
+        $('#segment').click(function() {
+            if (points.length === 0) {
+                alert('Please add at least one point before segmenting');
+                return;
+            }
+            
+            const className = $('#classSelect').val();
+            
+            $.ajax({
+                url: '/segment',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    filename: currentImage,
+                    points: points,
+                    point_labels: pointLabels,
+                    class_name: className
+                }),
+                success: function(response) {
+                    if(response.success) {
+                        $('#areaResults').append(
+                            `<p>${className} Area: ${response.area} pixels (Score: ${(response.score * 100).toFixed(2)}%)</p>`
+                        );
+                        
+                        const overlay = new Image();
+                        overlay.onload = function() {
+                            overlays.push(overlay);
+                            drawPoints();
+                        };
+                        overlay.src = response.overlay_path + '?' + new Date().getTime();
+                    } else {
+                        alert('Error during segmentation: ' + response.error);
+                    }
+                },
+                error: function() {
+                    alert('Error during segmentation');
+                }
+            });
+        });
+
+        $('#saveAnnotation').click(function() {
+            if (!currentImage) {
+                alert('Please upload an image first');
+                return;
+            }
+            
+            $.ajax({
+                url: '/save_annotation',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    filename: currentImage,
+                    annotations: annotations[currentImage]
+                }),
+                success: function(response) {
+                    if(response.success) {
+                        alert('Annotations saved successfully!');
+                    } else {
+                        alert('Error saving annotations: ' + response.error);
+                    }
+                },
+                error: function() {
+                    alert('Error saving annotations');
+                }
+            });
+        });
+        // Add this to your existing JavaScript
+        $('#downloadAnnotations').click(function() {
+            if (!currentImage) {
+                alert('No annotations to download');
+                return;
+            }
+            
+            // Convert annotations to JSON string
+            const jsonStr = JSON.stringify(annotations[currentImage], null, 2);
+            
+            // Create blob and download
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `annotation_${currentImage.split('.')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        })
+    </script>
+</body>
+</html>
